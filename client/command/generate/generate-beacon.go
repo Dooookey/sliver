@@ -41,6 +41,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 	if config == nil {
 		return
 	}
+	useCppBuild, _ = cmd.Flags().GetBool("cpp")
 	spoofMetadata, err := parseSpoofMetadataFlag(cmd, config)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)

@@ -1,11 +1,15 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="sliver-client" type="GoApplication" factoryName="Go Application">
+  <configuration default="false" name="sliver-client (console)" type="GoApplication" factoryName="Go Application">
     <module name="sliver" />
     <working_directory value="$PROJECT_DIR$" />
-    <go_parameters value="-mod=vendor -tags client" />
+    <go_parameters value="-mod=vendor -tags go_sqlite,client" />
+    <envs>
+      <env name="CGO_ENABLED" value="0" />
+    </envs>
     <kind value="PACKAGE" />
     <package value="github.com/bishopfox/sliver/client" />
     <directory value="$PROJECT_DIR$" />
+    <option name="EMULATE_TERMINAL" value="true" />
     <method v="2" />
   </configuration>
 </component>

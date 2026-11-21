@@ -2,7 +2,7 @@
   <configuration default="false" name="cppbuild tests" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="sliver" />
     <working_directory value="$PROJECT_DIR$" />
-    <go_parameters value="-mod=vendor" />
+    <go_parameters value="-mod=vendor -tags go_sqlite,server" />
     <kind value="PACKAGE" />
     <package value="github.com/bishopfox/sliver/server/cppbuild" />
     <framework value="gotest" />

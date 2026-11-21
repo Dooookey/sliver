@@ -83,6 +83,7 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 			}
 		}
 		if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+			useCppBuild, _ = cmd.Flags().GetBool("cpp")
 			_, err := compile(implantName, profile.Config, nil, save, con)
 			if err != nil {
 				return
