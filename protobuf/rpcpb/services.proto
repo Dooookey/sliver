@@ -96,6 +96,10 @@ service SliverRPC {
 
   // *** Implants ***
   rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
+  // C/C++ implant generation: identical contract to Generate, but the build
+  // backend is cmake (see server/cppbuild). Keep the request/response types
+  // shared so the client can switch with a single flag.
+  rpc GenerateCpp(clientpb.GenerateReq) returns (clientpb.Generate);
   rpc GenerateSpoofMetadata(clientpb.GenerateSpoofMetadataReq)
       returns (commonpb.Empty);
   rpc GenerateExternal(clientpb.ExternalGenerateReq)
