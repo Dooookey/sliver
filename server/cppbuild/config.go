@@ -98,7 +98,7 @@ type pathSegment struct {
 func WriteConfigJSON(path, name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, httpC2 *clientpb.HTTPC2ImplantConfig) error {
 	cfg := buildConfig{
 		Name:              name,
-		BuildID:           build.ID,
+		BuildID:           firstNonEmpty(config.ID, build.ID, name),
 		Strategy:          config.ConnectionStrategy,
 		Beacon:            config.IsBeacon,
 		ReconnectInterval: config.ReconnectInterval,
@@ -165,8 +165,17 @@ func WriteConfigJSON(path, name string, build *clientpb.ImplantBuild, config *cl
 	return os.WriteFile(path, data, 0600)
 }
 
-func buildHTTPProfile(p *clientpb.HTTPC2ImplantConfig) *httpImplant {
-	out := &httpImplant{
+// firstNonEmpty returns the first non-empty string (build/config ids).
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func buildHTTPProfile(p *clientpb.HTTPC2ImplantConfig) *httpImplant {	out := &httpImplant{
 		UserAgent:          p.UserAgent,
 		NonceQueryArgChars: p.NonceQueryArgChars,
 		NonceQueryArgLen:   p.NonceQueryLength,
