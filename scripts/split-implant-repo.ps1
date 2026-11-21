@@ -24,7 +24,7 @@ param(
   [string]$RemoteBranch = 'main'
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'   # native git writes progress to stderr
 
 $repo = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path (Join-Path $repo '.git'))) {
@@ -36,7 +36,8 @@ if (-not (Test-Path $prefix)) {
 }
 
 Write-Host "==> splitting history for implant-cpp (branch $Branch)"
-& git -C $repo subtree split --prefix=implant-cpp -b $Branch
+& git -C $repo branch -D $Branch *> $null
+& git -C $repo subtree split --prefix=implant-cpp -b $Branch *> $null
 if ($LASTEXITCODE -ne 0) { throw 'git subtree split failed' }
 
 $Target = [System.IO.Path]::GetFullPath($Target)
