@@ -1,0 +1,3 @@
+[submodule "implant-cpp"]
+	path = implant-cpp
+	url = https://github.com/Dooookey/sliver-implant-cpp.git
