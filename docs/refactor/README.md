@@ -60,7 +60,7 @@ OpenSSL 只保留为「开发期对拍/参考实现」，不进产品构建。�
 
 | 里程碑 | 内容 | 人日 | 验收信号 |
 |---|---|---|---|
-| **P0 打通** | `GenerateCpp` + `cppbuild` + 配置注入 + mbedTLS TLS1.3 + yamux + 签名帧 + 最小 protobuf（Envelope/Register/Ping） | 8 | `sliver > generate-cpp …` 出文件 → 运行 → `sessions` 出现该 implant → `ping` 往返成功；产物静态且 ≤512 KB |
+| **P0 打通** ✅ | `GenerateCpp` + `cppbuild` + 配置注入 + mbedTLS TLS1.3 + yamux + 签名帧 + 最小 protobuf（Envelope/Register/Ping） | 8 | **已完成（2026-11-21）**：`generate-cpp` 出 771 KB 静态 exe → 无参运行 → `sessions` 出现 `CONSERVATION_BEING`；体积收口留到 P5 |
 | **P1 可用** | 文件（ls/cd/pwd/download/upload/rm/mkdir）、进程（ps/terminate）、执行（execute）、隧道底座 + shell(PTY) | 10 | 交互式会话能执行命令、传文件、开 shell |
 | **P2 传输扩展** | beacon 模式、HTTP(S) 传输（age 会话密钥、nonce/encoder、cookie） | 10 | `beacons` 列表 + 任务下发/回收；`--http` 可回连 |
 | **P3 横向** | DNS 传输、pivot、rportfwd、socks5 | 12 | 三条传输任选可回连；隧道类命令可用 |
