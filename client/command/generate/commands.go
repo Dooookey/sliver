@@ -371,7 +371,6 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'archive' (for Go c-archives), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 		f.String("service-name", "", "service name to register the implant under (service format only)")
-		f.Bool("cpp", false, "build the C/C++ implant via cmake instead of the Go toolchain (GenerateCpp)")
 
 		// Shellcode generation options:
 		// - Windows: Donut

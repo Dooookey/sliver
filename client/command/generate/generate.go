@@ -100,10 +100,6 @@ const (
 	imageFileDLLCharacteristic = 0x2000
 )
 
-// useCppBuild selects the C/C++ (cmake) build backend for the next compile()
-// call. It is set from the `--cpp` flag by the command entry points.
-var useCppBuild bool
-
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateForm(cmd, con, args) {
@@ -126,11 +122,6 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if config == nil {
 		return
 	}
-	useCppBuild, _ = cmd.Flags().GetBool("cpp")
-	if useCppBuild && config.Format == clientpb.OutputFormat_GO_ARCHIVE {
-		con.PrintErrorf("C/C++ implants have no archive format; use --format shared\n")
-		return
-	}
 	spoofMetadata, err := parseSpoofMetadataFlag(cmd, config)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -140,7 +131,9 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if save == "" {
 		save, _ = os.Getwd()
 	}
-	if external, _ := cmd.Flags().GetBool("external-builder"); external && !useCppBuild {
+	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+		compile(name, config, spoofMetadata, save, con)
+	} else {
 		_, err := externalBuild(name, config, spoofMetadata, save, con)
 		if err != nil {
 			switch err {
@@ -156,8 +149,6 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			}
 			return
 		}
-	} else {
-		compile(name, config, spoofMetadata, save, con)
 	}
 }
 
@@ -1846,22 +1837,12 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 
 	start := time.Now()
 	ctrl := make(chan bool)
-	if useCppBuild {
-		con.PrintInfof("Build backend: %s\n", console.StyleBold.Render("cmake (C/C++)"))
-	}
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
-	req := &clientpb.GenerateReq{
+	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
 		Name:   name,
 		Config: config,
-	}
-	var generated *clientpb.Generate
-	var err error
-	if useCppBuild {
-		generated, err = con.Rpc.GenerateCpp(context.Background(), req)
-	} else {
-		generated, err = con.Rpc.Generate(context.Background(), req)
-	}
+	})
 	ctrl <- true
 	<-ctrl
 	if err != nil {

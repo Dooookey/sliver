@@ -143,7 +143,7 @@ server/cppbuild/
    然后 `make pb` 重新生成（本机当前无 protoc，需在具备 protobuf 工具链的环境执行）。
    在此之前 Go 侧代码可编译（方法已存在），但 gRPC 客户端还调不到——这是 P0 的第一件事。
 
-2. **客户端命令**：`client/command/generate` 增加 `--cpp` 开关（走 `GenerateCpp` 而非 `Generate`），
+2. **客户端命令**：新增独立包 `client/command/cppgen`，命令 `generate-cpp`（别名 `gcpp`），复用官方的 C2 URI 解析函数与字段语义，只把 RPC 换成 `GenerateCpp`。官方 `client/command/generate` 包保持与上游一致（`git diff master -- client/command/generate` 为空），两条链路可并列对比。`generate-cpp` 在 `client/command/server.go` 的 payloads 组里注册一行，属于纯新增。
    或在现有命令里按 flag 分流；CLI 文案与 `--format` 语义保持不变。
 
 ---
@@ -155,7 +155,7 @@ server/cppbuild/
 sliver-server
 
 # 2. 生成 C implant（P0 阶段只有 mtls + exe）
-sliver > generate --mtls 127.0.0.1:8888 --os windows --arch amd64 --format exe --cpp
+sliver > generate-cpp --mtls 127.0.0.1:8888 --os windows --arch amd64 --format exe
 
 # 3. 在目标机执行，观察注册
 sliver > sessions           # 必须出现该 session，Transport=mtls
