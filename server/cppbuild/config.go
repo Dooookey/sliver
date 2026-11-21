@@ -145,6 +145,11 @@ func WriteConfigJSON(path, name string, build *clientpb.ImplantBuild, config *cl
 	if len(cfg.C2) == 0 {
 		return fmt.Errorf("cppbuild: implant config has no C2 endpoints")
 	}
+	// The C side embeds the strategy as a char literal; an empty value would
+	// produce `''` and fail to compile.
+	if cfg.Strategy == "" {
+		cfg.Strategy = "s"
+	}
 
 	if httpC2 != nil && config.IncludeHTTP {
 		cfg.HTTP = buildHTTPProfile(httpC2)

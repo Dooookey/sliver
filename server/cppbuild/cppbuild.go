@@ -253,6 +253,10 @@ func runCMake(cmakeBin, dir string, args []string) error {
 	cmd := exec.Command(cmakeBin, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
+	if os.Getenv("SLIVER_CPP_VERBOSE") == "1" {
+		// Debug aid: mirror cmake output to stderr (tests, CI, local debugging).
+		_, _ = os.Stderr.Write(out)
+	}
 	if err != nil {
 		tail := string(out)
 		if len(tail) > 4096 {
