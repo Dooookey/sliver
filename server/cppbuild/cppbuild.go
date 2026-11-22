@@ -162,6 +162,15 @@ func compile(format Format, opts Options, name string, build *clientpb.ImplantBu
 	if err := ValidateArtifact(fPath, format); err != nil {
 		return "", err
 	}
+	// The client reads bin/<name>.bin before sending some Windows RPCs (getsystem
+	// looks for the implant's getsystem asset). The C implant answers those RPCs
+	// itself, so a placeholder keeps the client path working without shipping a
+	// shellcode blob.
+	placeholder := filepath.Join(binDir, name+".bin")
+	if err := os.WriteFile(placeholder, []byte{}, 0600); err != nil {
+		return "", fmt.Errorf("cppbuild: write placeholder bin: %w", err)
+	}
+	cppLog.Infof("C++ implant placeholder asset: %s", placeholder)
 	return fPath, nil
 }
 
