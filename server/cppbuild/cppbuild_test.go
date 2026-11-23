@@ -62,6 +62,11 @@ func requireCmake(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(src, "CMakeLists.txt")); err != nil {
 		t.Skipf("implant-cpp not checked out at %s", src)
 	}
+	// The test runs with its own working directory (server/cppbuild), so the
+	// source tree it just found has to be handed to the backend explicitly;
+	// without this the whole suite only passed when SLIVER_CPP_SRC was exported
+	// by hand.
+	t.Setenv(envSourceDir, src)
 }
 
 // TestCompileExecutable drives the whole cmake backend: config.json rendering,
