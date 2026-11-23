@@ -1,4 +1,4 @@
-# 全量审计与修复 — 最终状态（v0.9.0）
+# 全量审计与修复 — 最终状态（v0.10.0）
 
 三路只读审计（执行崩溃/并发、架构分层、协议对齐）+ 逐项修复后的收尾状态。
 
@@ -22,6 +22,7 @@
 | R14 | shell sequence/read_sequence 跨线程无锁 | per-tunnel seq_lock | 94aae5b |
 | R15 | log 写无锁 + 锁只在 debug 初始化 | 写加 g_lock + 无条件 init | 18ac8df |
 | R16 | yamux 帧头被 100ms 超时劈开 / 单槽 pending / 写窗口无界 | 帧头缓冲 + 30s body 超时 + 10s 写超时 + 32 槽 pending | 3e3a5a1 |
+| R17 | execute 缺 PPid；shell 中文未在 harness 覆盖 | PPid 走 PROC_THREAD_ATTRIBUTE_PARENT_PROCESS；harness 发送 `echo 中文测试` | 344dd7d |
 
 ## 2. P2 架构（6 项）
 
@@ -34,11 +35,11 @@
 | #3 | 传输抽象 vtable | ✅ | b181f37 |
 | #4 | proto encoder 下沉 | ⏳ 唯一剩余 | — |
 
-## 3. 验证基线（v0.9.0）
+## 3. 验证基线（v0.10.0）
 
 - `--selftest-all PASS`（13 模块）
 - `ctest 3/3`（config / crypto_kat / wire_vectors）
-- 端到端 harness **全绿**：`ASYNC EXECUTE / EXECUTE / TUNNEL BIND / PORTFWD(+echo) / IMPLANT REPLY / SHELL`（505 帧 291 KB，big-output-ok=true）
+- 端到端 harness **全绿**：`ASYNC EXECUTE / EXECUTE / TUNNEL BIND / PORTFWD(+echo) / IMPLANT REPLY / SHELL`（488 帧 291 KB，big-output-ok=true，**chinese-ok=true**）
 - crypto=OFF：configure+build 成功，exe exit 3
 - shared：`msvc-x64-dll` 构建出 `implant.dll`（106 KB）
 - 实机（operator 确认）：register、文件、execute、shell（中文）、portfwd、screenshot、getprivs、services、registry、make-token、rev2self
@@ -47,13 +48,12 @@
 
 | 级别 | 项 | 落点 |
 |---|---|---|
-| P2 #4 | proto.c 反向依赖 platform 头：~32 个域编码器下沉到各自域源（fs/proc/net/privs/services/registry），proto.c 只留 buf/reader/envelope | `src/proto/proto.c` |
-| 小项 | harness `chinese-ok=false`：shell 输出 UTF-8→ACP 转换在 CP936 控制台下 | `shell.c` 的 acp 转换 |
-| 小项 | execute 的 PPid 真正设置子进程父进程（需父作业） | `win32/exec.c` |
+| P2 #4 | proto.c 反向依赖 platform 头：~14 个平台依赖编码器下沉到 `domain_enc.c`（fs/proc/net/privs/services/registry），proto.c 只留 buf/reader/envelope + 纯 proto 编码器 | `src/proto/proto.c` |
 
 ## 5. 里程碑
 
 - `v0.6.0-p4`（P4 权限/服务/信息子集）
 - `v0.7.0-p1`（阶段 A 收口）
 - `v0.8.0`（全量审计 + P0/P1 修复）
-- **`v0.9.0`（P2 架构 5/6：构建选项、分层、传输抽象、dispatch 宏化；shell harness 转绿）**
+- `v0.9.0`（P2 架构 5/6：构建选项、分层、传输抽象、dispatch 宏化；shell harness 转绿）
+- **`v0.10.0`（execute PPid + shell 中文 chinese-ok 转绿；P2 剩余 #4 唯一）**
