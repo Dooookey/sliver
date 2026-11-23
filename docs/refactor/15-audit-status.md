@@ -1,4 +1,4 @@
-# 全量审计与修复 — 最终状态（v0.8.0）
+# 全量审计与修复 — 最终状态（v0.9.0）
 
 三路只读审计（执行崩溃/并发、架构分层、协议对齐）+ 逐项修复后的收尾状态。
 
@@ -20,24 +20,40 @@
 | R12 | privs C4456 告警 | 变量改名 | fb31348 |
 | R13 | execute 缺 Stdout/Stderr/PPid；netstat 缺 Executable | 补字段 + output 重定向 + Toolhelp 解析进程名 | 93d6b03 |
 | R14 | shell sequence/read_sequence 跨线程无锁 | per-tunnel seq_lock | 94aae5b |
+| R15 | log 写无锁 + 锁只在 debug 初始化 | 写加 g_lock + 无条件 init | 18ac8df |
+| R16 | yamux 帧头被 100ms 超时劈开 / 单槽 pending / 写窗口无界 | 帧头缓冲 + 30s body 超时 + 10s 写超时 + 32 槽 pending | 3e3a5a1 |
 
-## 2. 验证基线
+## 2. P2 架构（6 项）
 
-- `--selftest-all PASS`（13 个模块）
+| # | 项 | 状态 | 提交 |
+|---|---|---|---|
+| #1a | proto.c 拆出 crypto 门控 | ✅ | 56b6761 |
+| #1b | crypto=OFF 可构建/链接/运行 | ✅（实测 exit 3） | 0699022 |
+| #2 | shared DLL 跑会话循环 | ✅（106 KB DLL） | 4e60ad0 |
+| #5 | dispatch 宏化 + spawn-dll 注册 | ✅ | 49b91be |
+| #3 | 传输抽象 vtable | ✅ | b181f37 |
+| #4 | proto encoder 下沉 | ⏳ 唯一剩余 | — |
+
+## 3. 验证基线（v0.9.0）
+
+- `--selftest-all PASS`（13 模块）
 - `ctest 3/3`（config / crypto_kat / wire_vectors）
-- 端到端对端：`ASYNC EXECUTE ok / EXECUTE ok / TUNNEL BIND ok / PORTFWD ok + DATA echo / IMPLANT REPLY ok`
-- 实机（operator 确认）：register、文件、execute、shell（中文）、portfwd 请求路径、screenshot、getprivs、services、registry、make-token、rev2self
+- 端到端 harness **全绿**：`ASYNC EXECUTE / EXECUTE / TUNNEL BIND / PORTFWD(+echo) / IMPLANT REPLY / SHELL`（505 帧 291 KB，big-output-ok=true）
+- crypto=OFF：configure+build 成功，exe exit 3
+- shared：`msvc-x64-dll` 构建出 `implant.dll`（106 KB）
+- 实机（operator 确认）：register、文件、execute、shell（中文）、portfwd、screenshot、getprivs、services、registry、make-token、rev2self
 
-## 3. 仍待办（均已定位到文件/行号）
+## 4. 仍待办
 
 | 级别 | 项 | 落点 |
 |---|---|---|
-| 测试侧 | harness 的 shell 阶段 `want type 21 got 0`：Shell 响应 TLS 写返回 -2 重试 200ms 后失败，实测是对端（mtls-testserver）停读导致的流控，非植入体 bug；实机 shell 正常 | `tests/mtls-testserver/main.go` 的 shell 用例读流方式 |
-| P2 | execute 的 PPid 真正设置子进程父进程（需 `CreateProcess` 父作业/属性列表） | `win32/exec.c` |
-| P2 | IMPLANT_CRYPTO=OFF 断链、IMPLANT_FORMAT=shared 空壳、无传输抽象、proto 反向依赖 platform、log 写路径加锁 | 见 docs/refactor/14-architecture-audit.md |
+| P2 #4 | proto.c 反向依赖 platform 头：~32 个域编码器下沉到各自域源（fs/proc/net/privs/services/registry），proto.c 只留 buf/reader/envelope | `src/proto/proto.c` |
+| 小项 | harness `chinese-ok=false`：shell 输出 UTF-8→ACP 转换在 CP936 控制台下 | `shell.c` 的 acp 转换 |
+| 小项 | execute 的 PPid 真正设置子进程父进程（需父作业） | `win32/exec.c` |
 
-## 4. 里程碑
+## 5. 里程碑
 
 - `v0.6.0-p4`（P4 权限/服务/信息子集）
 - `v0.7.0-p1`（阶段 A 收口）
-- **`v0.8.0`（本次：全量审计 + P0/P1 修复）**
+- `v0.8.0`（全量审计 + P0/P1 修复）
+- **`v0.9.0`（P2 架构 5/6：构建选项、分层、传输抽象、dispatch 宏化；shell harness 转绿）**
