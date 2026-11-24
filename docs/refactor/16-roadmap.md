@@ -1,20 +1,16 @@
-# Sliver Implant-CPP 后续开发规划（v0.10.0+，P2 已全量收口）
+# Sliver Implant-CPP 后续开发规划（v0.11.0+，阶段一已收口）
 
-现状：session 模式全链路可用（register/ls/cd/mkdir/rm/ps/env/upload/download/execute/shell/portfwd/ifconfig/netstat/mount/screenshot/getprivs/services/registry/make-token/rev2self/getsystem）。P0/P1 缺陷清零，P2 架构 6/6 完成（crypto=OFF、shared DLL、传输抽象、dispatch 宏化、proto 分层、域编码器下沉）。harness 全绿（含 shell chinese-ok、big-output-ok）。exe/DLL 两种产物 + crypto=ON/OFF 两种配置均构建通过。
+现状：session 模式全链路可用（register/ls/cd/mkdir/rm/ps/env/upload/download/execute/shell/portfwd/ifconfig/netstat/tcp+udp/mount/screenshot/getprivs/services/registry/make-token/rev2self/getsystem）。P0/P1/P2 全量收口，阶段一（协议补全）5/5 完成。harness 全绿（含 shell chinese-ok、big-output-ok）。exe/DLL 双产物 + crypto=ON/OFF 双配置均构建通过。
 
-## 阶段一：协议补全（对齐 Go implant，用户可见，优先）
+## 阶段一：协议补全（✅ 已完成，v0.11.0）
 
-目标：把「Go 已实现、C 未实现或字段缺失」的 RPC 补齐，直接提升对官方 sliver-server 的兼容度。
-
-| # | 项 | 落点 | 验收 |
-|---|---|---|---|
-| 1.1 | execute Env(7) | `proto.c` decode + `win32/exec.c` CreateProcess 传环境块 | `execute` 带 env 生效 |
-| 1.2 | netstat UDP | `win32/net.c` 补 `GetExtendedUdpTable` | netstat 显示 UDP |
-| 1.3 | token 完整字段 | `sliver_current_token_owner_encode` 补 token 类型/域/权限 | `getuid`/`whoami` 信息完整 |
-| 1.4 | registry 二进制值 | `reg_read_encode`/`reg_names_encode` 返回二进制 value | `reg read` 二进制正确 |
-| 1.5 | 错误消息对齐 | cp/mv/chmod/chtimes 的 errno → Go 同款文案 | 客户端报错可读 |
-
-里程碑 tag：`v0.11.0`（协议补全）。
+| # | 项 | 状态 |
+|---|---|---|
+| 1.1 | execute Env(7) | ✅ |
+| 1.2 | netstat UDP | ✅ |
+| 1.3 | token 完整字段 | ✅（核查已实现） |
+| 1.4 | registry 二进制值 | ✅（核查已实现） |
+| 1.5 | 错误消息对齐 | ✅ |
 
 ## 阶段二：beacon 模式（C2 模式完整性）
 
