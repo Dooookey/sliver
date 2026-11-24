@@ -19,8 +19,8 @@ import (
 // `generate` command exposes (subset that the C/C++ runtime supports), then
 // hands it to the GenerateCpp RPC. All target/limits/transport semantics match
 // upstream because the C2 URI parsing and the units are shared with it.
-func GenerateCppCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	name, config, ok := parseCppFlags(cmd, con)
+func GenerateCppCmd(cmd *cobra.Command, con *console.SliverClient, args []string, isBeacon bool) {
+	name, config, ok := parseCppFlags(cmd, con, isBeacon)
 	if !ok {
 		return
 	}
@@ -76,7 +76,7 @@ func GenerateCppCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 }
 
 // parseCppFlags mirrors the relevant part of generate.parseCompileFlags.
-func parseCppFlags(cmd *cobra.Command, con *console.SliverClient) (string, *clientpb.ImplantConfig, bool) {
+func parseCppFlags(cmd *cobra.Command, con *console.SliverClient, isBeacon bool) (string, *clientpb.ImplantConfig, bool) {
 	flags := cmd.Flags()
 
 	name, _ := flags.GetString("name")
@@ -131,7 +131,6 @@ func parseCppFlags(cmd *cobra.Command, con *console.SliverClient) (string, *clie
 	keyExchange, _ := flags.GetUint32("key-exchange")
 	tcpComms, _ := flags.GetUint32("tcp-comms")
 	allProtocols, _ := flags.GetBool("all-protocols")
-	beacon, _ := flags.GetBool("beacon")
 	interval, _ := flags.GetInt64("interval")
 	jitter, _ := flags.GetInt64("jitter")
 	exportsRaw, _ := flags.GetString("exports")
@@ -159,7 +158,7 @@ func parseCppFlags(cmd *cobra.Command, con *console.SliverClient) (string, *clie
 		GOOS:                goos,
 		GOARCH:              goarch,
 		Format:              format,
-		IsBeacon:            beacon,
+		IsBeacon:            isBeacon,
 		BeaconInterval:      interval * int64(time.Second),
 		BeaconJitter:        jitter * int64(time.Second),
 		ReconnectInterval:   reconnect * int64(time.Second),
