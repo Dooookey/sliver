@@ -52,6 +52,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			"Same flags and target resolution as `generate`, but the artifact is built by the\n" +
 			"C/C++ project (cmake) instead of the Go toolchain, and it speaks the standard\n" +
 			"Sliver wire protocol.",
+		// The official `generate` exposes a `beacon` subcommand; a stray positional
+		// arg here (e.g. `generate-cpp beacon`) used to be silently ignored and
+		// produce a session, so reject unexpected args instead of guessing.
+		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			GenerateCppCmd(cmd, con, args)
 		},
@@ -62,6 +66,23 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	cppImplantFlags(generateCppCmd)
+
+	// `generate-cpp beacon` mirrors `generate beacon`: same flags, but IsBeacon is
+	// forced true. The `--beacon` flag on the parent stays as a convenience alias.
+	generateCppBeaconCmd := &cobra.Command{
+		Use:   consts.BeaconStr,
+		Short: "Generate a C/C++ beacon binary (cmake build backend)",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			_ = cmd.Flags().Set("beacon", "true")
+			GenerateCppCmd(cmd, con, args)
+		},
+		GroupID: consts.PayloadsHelpGroup,
+	}
+	// Local flags only: persistent flags (e.g. --timeout) are inherited from the
+	// parent generate-cpp command.
+	cppImplantFlags(generateCppBeaconCmd)
+	generateCppCmd.AddCommand(generateCppBeaconCmd)
 
 	return []*cobra.Command{generateCppCmd}
 }
