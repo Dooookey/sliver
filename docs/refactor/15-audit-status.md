@@ -33,7 +33,7 @@
 | #2 | shared DLL 跑会话循环 | ✅（106 KB DLL） | 4e60ad0 |
 | #5 | dispatch 宏化 + spawn-dll 注册 | ✅ | 49b91be |
 | #3 | 传输抽象 vtable | ✅ | b181f37 |
-| #4 | proto encoder 下沉 | ⏳ 唯一剩余 | — |
+| #4 | proto encoder 下沉 domain_enc.c | ✅ | ce9385d |
 
 ## 3. 验证基线（v0.10.0）
 
@@ -46,9 +46,7 @@
 
 ## 4. 仍待办
 
-| 级别 | 项 | 落点 |
-|---|---|---|
-| P2 #4 | proto.c 反向依赖 platform 头：~14 个平台依赖编码器下沉到 `domain_enc.c`（fs/proc/net/privs/services/registry），proto.c 只留 buf/reader/envelope + 纯 proto 编码器 | `src/proto/proto.c` |
+无 P0/P1/P2 遗留。后续方向见 `16-roadmap.md`（beacon 模式、Windows 深度、CI 等）。
 
 ## 5. 里程碑
 
