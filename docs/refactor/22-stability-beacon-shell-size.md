@@ -155,7 +155,9 @@ C 端其实**已经很接近可用**，因为 `shell.c` 的输出走 `sliver_she
 | 阶段 | 内容 | 前置 | 主要风险 |
 |---|---|---|---|
 | **5a ✅** | HTTP(S) 配置契约：`config.json` 的 `http` profile → CMake 宏 + `implant_http_c2.c` 数组 → `sliver_config_http_*` 访问器（无运行时消费者） | 无 | 已完成，两侧 harness 全绿 |
-| **5b** | HTTP(S) 通道：`channel_http.c`（POLL）+ `sliver_channel_dial` 按 scheme 分派 | 5a | POLL 调度语义（session over http 必须轮询） |
+| **5b ✅** | HTTP 通道：`channel_http.c`（POLL，`http://`）+ `channel.c` 按 scheme 分派 | 5a | 已完成，beacon×http 实测通过 |
+| **5c** | HTTPS：`channel_http.c` 的 TLS 封装（需要不要求客户端证书的 TLS 客户端） | 5b | 证书校验/SNI；`https://` 目前明确报错 |
+| **5d** | session × http 全量 RPC 回归（当前只验到 beacon×http 与 session×mtls） | 5b | 轮询语义下的长任务 |
 | **6** | DNS / WireGuard 通道 | 阶段 5 的 POLL 抽象 | DNS 分片/重排；WG 需要 `wg_*` secrets |
 | 7 | beacon 缓冲式 shell（可选） | 阶段 4 | 背压与体验 |
 | 8 | 按模式裁剪产物（可选） | 阶段 5/6 | 构建配置翻倍，回归网需各跑 |
