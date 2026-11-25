@@ -43,6 +43,10 @@ import (
 )
 
 // Commands returns the generate-cpp command tree.
+//
+// The tree mirrors the official `generate` command: `generate-cpp` builds an
+// interactive session and `generate-cpp beacon` builds a beacon. Beacon is a
+// subcommand (not a --beacon flag) so the two commands stay shape-compatible.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	generateCppCmd := &cobra.Command{
 		Use:     consts.GenerateStr + "-cpp",
@@ -51,9 +55,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Long: "Generate a C/C++ implant binary.\n\n" +
 			"Same flags and target resolution as `generate`, but the artifact is built by the\n" +
 			"C/C++ project (cmake) instead of the Go toolchain, and it speaks the standard\n" +
-			"Sliver wire protocol.",
+			"Sliver wire protocol.\n\n" +
+			"Use `generate-cpp beacon ...` to build a beacon instead of an interactive session.",
+		// Reject stray positional args: `generate-cpp beacon` used to be swallowed
+		// as an argument and silently produced a session.
+		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			GenerateCppCmd(cmd, con, args)
+			GenerateCppCmd(cmd, con, args, false)
 		},
 		GroupID: consts.PayloadsHelpGroup,
 	}
@@ -62,6 +70,22 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	cppImplantFlags(generateCppCmd)
+
+	// `generate-cpp beacon`: same flags plus the beacon interval/jitter. No
+	// GroupID here - cobra only allows groups on top-level commands.
+	generateCppBeaconCmd := &cobra.Command{
+		Use:   consts.BeaconStr,
+		Short: "Generate a C/C++ beacon binary (cmake build backend)",
+		Long: "Generate a C/C++ beacon binary.\n\n" +
+			"Same flags as `generate-cpp`, plus the beacon interval and jitter.",
+		Args: cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			GenerateCppCmd(cmd, con, args, true)
+		},
+	}
+	cppImplantFlags(generateCppBeaconCmd)
+	cppBeaconFlags(generateCppBeaconCmd)
+	generateCppCmd.AddCommand(generateCppBeaconCmd)
 
 	return []*cobra.Command{generateCppCmd}
 }
@@ -99,9 +123,6 @@ func cppImplantFlags(cmd *cobra.Command) {
 	f.Int64P("poll-timeout", "P", generate.DefaultPollTimeout, "long poll request timeout in second(s)")
 	f.Uint32P("max-errors", "k", generate.DefaultMaxErrors, "max number of connection errors")
 	f.StringP("c2profile", "C", consts.DefaultC2Profile, "HTTP C2 profile to use")
-	f.Bool("beacon", false, "generate a beacon instead of an interactive session")
-	f.Int64("interval", 60, "beacon interval in second(s)")
-	f.Int64("jitter", 0, "beacon jitter in second(s)")
 
 	// Limits
 	f.StringP("limit-datetime", "w", "", "limit execution to before datetime")
@@ -115,6 +136,14 @@ func cppImplantFlags(cmd *cobra.Command) {
 	f.StringP("exports", "v", "StartW", "comma separated list of exports (shared format)")
 	f.BoolP("run-at-load", "R", false, "run the implant entrypoint from DllMain/Constructor (shared only)")
 	f.String("service-name", "", "service name to register the implant under (windows service format)")
+}
+
+// cppBeaconFlags binds the beacon-only flags. They live on the `beacon`
+// subcommand, exactly like coreBeaconFlags does for the official `generate`.
+func cppBeaconFlags(cmd *cobra.Command) {
+	f := cmd.Flags()
+	f.Int64("interval", 60, "beacon interval in second(s)")
+	f.Int64("jitter", 0, "beacon jitter in second(s)")
 }
 
 // outputFormatFromFlag maps the CLI string onto clientpb.OutputFormat.
