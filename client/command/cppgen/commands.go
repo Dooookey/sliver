@@ -138,12 +138,16 @@ func cppImplantFlags(cmd *cobra.Command) {
 	f.String("service-name", "", "service name to register the implant under (windows service format)")
 }
 
-// cppBeaconFlags binds the beacon-only flags. They live on the `beacon`
-// subcommand, exactly like coreBeaconFlags does for the official `generate`.
+// cppBeaconFlags binds the beacon-only flags. Names, shorthands and defaults
+// mirror coreBeaconFlags from the official `generate` command, so
+// `generate-cpp beacon` accepts exactly the same interval/jitter surface.
 func cppBeaconFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
-	f.Int64("interval", 60, "beacon interval in second(s)")
-	f.Int64("jitter", 0, "beacon jitter in second(s)")
+	f.Int64P("days", "D", 0, "beacon interval days")
+	f.Int64P("hours", "H", 0, "beacon interval hours")
+	f.Int64P("minutes", "M", 0, "beacon interval minutes")
+	f.Int64P("seconds", "S", 60, "beacon interval seconds")
+	f.Int64P("jitter", "J", 30, "beacon interval jitter in seconds")
 }
 
 // outputFormatFromFlag maps the CLI string onto clientpb.OutputFormat.

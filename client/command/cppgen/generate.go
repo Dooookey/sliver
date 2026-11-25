@@ -75,6 +75,39 @@ func GenerateCppCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 }
 
+// cppMinBeaconInterval mirrors generate.minBeaconInterval.
+const cppMinBeaconInterval = 5 * time.Second
+
+// parseCppBeaconFlags reproduces generate.parseBeaconFlags: the interval is
+// days+hours+minutes+seconds, and the 60s default only applies when no other
+// unit was given. Returns (interval, jitter) in nanoseconds, or ok=false after
+// printing an error.
+func parseCppBeaconFlags(cmd *cobra.Command, con *console.SliverClient, isBeacon bool) (int64, int64, bool) {
+	if !isBeacon {
+		return 0, 0, true
+	}
+	flags := cmd.Flags()
+	days, _ := flags.GetInt64("days")
+	hours, _ := flags.GetInt64("hours")
+	minutes, _ := flags.GetInt64("minutes")
+	seconds, _ := flags.GetInt64("seconds")
+
+	interval := time.Duration(days)*24*time.Hour +
+		time.Duration(hours)*time.Hour +
+		time.Duration(minutes)*time.Minute
+	// Same rule as upstream: only add the seconds component when it was set
+	// explicitly, or when no other unit produced a non-zero interval.
+	if flags.Changed("seconds") || interval == 0 {
+		interval += time.Duration(seconds) * time.Second
+	}
+	if interval < cppMinBeaconInterval {
+		con.PrintErrorf("beacon interval must be %v or greater\n", cppMinBeaconInterval)
+		return 0, 0, false
+	}
+	jitter, _ := flags.GetInt64("jitter")
+	return int64(interval), int64(time.Duration(jitter) * time.Second), true
+}
+
 // parseCppFlags mirrors the relevant part of generate.parseCompileFlags.
 func parseCppFlags(cmd *cobra.Command, con *console.SliverClient, isBeacon bool) (string, *clientpb.ImplantConfig, bool) {
 	flags := cmd.Flags()
@@ -131,8 +164,10 @@ func parseCppFlags(cmd *cobra.Command, con *console.SliverClient, isBeacon bool)
 	keyExchange, _ := flags.GetUint32("key-exchange")
 	tcpComms, _ := flags.GetUint32("tcp-comms")
 	allProtocols, _ := flags.GetBool("all-protocols")
-	interval, _ := flags.GetInt64("interval")
-	jitter, _ := flags.GetInt64("jitter")
+	interval, jitter, ok := parseCppBeaconFlags(cmd, con, isBeacon)
+	if !ok {
+		return "", nil, false
+	}
 	exportsRaw, _ := flags.GetString("exports")
 	runAtLoad, _ := flags.GetBool("run-at-load")
 	serviceName, _ := flags.GetString("service-name")
@@ -159,8 +194,8 @@ func parseCppFlags(cmd *cobra.Command, con *console.SliverClient, isBeacon bool)
 		GOARCH:              goarch,
 		Format:              format,
 		IsBeacon:            isBeacon,
-		BeaconInterval:      interval * int64(time.Second),
-		BeaconJitter:        jitter * int64(time.Second),
+		BeaconInterval:      interval,
+		BeaconJitter:        jitter,
 		ReconnectInterval:   reconnect * int64(time.Second),
 		PollTimeout:         pollTimeout * int64(time.Second),
 		MaxConnectionErrors: maxErrors,
