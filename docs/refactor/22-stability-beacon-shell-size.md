@@ -154,7 +154,8 @@ C 端其实**已经很接近可用**，因为 `shell.c` 的输出走 `sliver_she
 
 | 阶段 | 内容 | 前置 | 主要风险 |
 |---|---|---|---|
-| **5** | HTTP(S) 通道：`config.json` 扩 C2 profile 字段 → `channel_http.c`（POLL）→ `dial` 按 scheme 分派 | 无 | 配置契约扩展（server 侧 `cppbuild` + cmake + C 访问器）；POLL 调度语义（session over http 必须轮询） |
+| **5a ✅** | HTTP(S) 配置契约：`config.json` 的 `http` profile → CMake 宏 + `implant_http_c2.c` 数组 → `sliver_config_http_*` 访问器（无运行时消费者） | 无 | 已完成，两侧 harness 全绿 |
+| **5b** | HTTP(S) 通道：`channel_http.c`（POLL）+ `sliver_channel_dial` 按 scheme 分派 | 5a | POLL 调度语义（session over http 必须轮询） |
 | **6** | DNS / WireGuard 通道 | 阶段 5 的 POLL 抽象 | DNS 分片/重排；WG 需要 `wg_*` secrets |
 | 7 | beacon 缓冲式 shell（可选） | 阶段 4 | 背压与体验 |
 | 8 | 按模式裁剪产物（可选） | 阶段 5/6 | 构建配置翻倍，回归网需各跑 |
