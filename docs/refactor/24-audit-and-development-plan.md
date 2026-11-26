@@ -46,7 +46,7 @@ platform/  win32/ posix/
 | **P0** | poll 响应体带 74B 签名头 | 兼容两种布局（已修） | 已闭环 |
 | **P1** | HTTP 长轮询未接入 | recv 用固定 15s socket 超时，`poll_timeout` 未生效 | 计划 3.1 |
 | **P1** | 编码器仅 NOP 可用 | `pick_nonce` 恒选 NoEncoder；base58/english/png 未实现 | 计划 3.2 |
-| **P1** | session×http 未回归 | 仅 beacon×http 实测 | 计划 3.3 |
+| ~~P1~~ | session×http | **实测通过**（含 shell 隧道、services 66KB 回显） | 已闭环 |
 | **P2** | beacon 结果上传侧未加签名头 | 服务端当前接受；若 profile 开启校验会失败 | 计划 3.4 |
 | **P2** | 心跳仅 session 有 | beacon 以 checkin 代心跳（官方一致） | 保持 |
 | **P2** | 进程级共享状态 | `g_rpc_send` / `g_tx` / `g_pending` / sender 注册 | 已文档化，改动时需守规则（见 §5） |
@@ -70,7 +70,13 @@ platform/  win32/ posix/
 - **验收**：对真实 listener，base64/hex/base32/gzip 四种各跑一次注册+checkin。
 - **风险**：中（编码不一致会导致 404，需逐个实测）；base58/english/png 暂不选。
 
-### 3.3 session × HTTP 全量回归（P1）
+### 3.3 session × HTTP 全量回归（P1）✅ 已完成（2026-11-26 实测）
+
+实测：session over http 能注册上线，`ls`/`ps`/`services` 正常，**`shell` 也正常工作**——
+隧道帧通过 POLL 通道逐帧 POST 回传（日志可见 seq 0..22 与 4KB 分片），因此
+**不需要**把能力位改成"POLL 通道无隧道"。代价是每帧一次 POST + 轮询，交互有明显延迟。
+
+原始计划（保留供参考）：
 
 - **目标**：session 模式在 http(s) 上完成 13 类 RPC + shell（shell 需要隧道，POLL 下应被能力位正确拒绝或改为缓冲式）。
 - **改动面**：无（验证为主）；若 shell 需要支持，见 3.5。
