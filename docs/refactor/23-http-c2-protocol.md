@@ -57,42 +57,83 @@ C 端可强制 **NoEncoder**：只要 `nonce % 65537 == 0`（`EncoderFromNonce` 
 | encoder id 注入 | `cppbuild/config.go` → cmake → `sliver_config_encoder_id` | ✅ |
 | 签名帧 | `src/wire/frame.c` | ✅（mtls 已在用） |
 
-## 5. 仍需确认的三点（H3 实现前必须核对）
+## 5. session id 的携带方式（已锁定）
 
-1. **session id 如何与后续请求关联**：客户端没有设置任何 session header / cookie，
-   `OTPQueryArgument`（`:233`）定义了却未被调用。服务端侧是
-   `getHTTPSession(req)` 从 URL 里提取 nonce，再 `db.ResourceIDByValue(nonce)`
-   （`server/c2/http.go:835-843`）反查会话 —— 因此关联发生在 **nonce/query 层**，
-   需要读 `getHTTPSession` 全文确认"session id / nonce / ResourceID"三者的换算方式。
-   这是 H3 唯一的硬阻塞点。
-2. **poll 超时**：`DoPoll` 用 `PollTimeout` 取消在途 GET（`:324-352`）；
-   C 端需要把 `SLIVER_POLL_TIMEOUT_NS` 接进 recv 的 socket 超时。
-3. **关闭请求的方法/期望状态码**：`CloseSession` 之后的请求形态（`:567+` 之后）。
+**结论：Cookie，且 cookie 名字每次响应随机。**
+
+服务端 `server/c2/http.go`：
+
+```go
+// :866-881 会话查找就是遍历 Cookie
+func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
+    for _, cookie := range req.Cookies() {
+        httpSession := s.HTTPSessions.Get(cookie.Value)   // cookie 的“值”就是 session ID
+        ...
+    }
+    return nil // 没有有效 cookie -> 视为匿名请求
+}
+
+// :891-895 session ID 形态：16 随机字节的 hex（32 字符）
+func newHTTPSessionID() string { ... return hex.EncodeToString(buf) }
+
+// :665-670 会话建立响应里由服务端下发 cookie
+http.SetCookie(resp, &http.Cookie{
+    Domain: s.ServerConf.Domain,
+    Name:   s.getCookieName(implantConfig.HTTPC2ConfigName),
+    Value:  httpSession.ID,
+})
+
+// getCookieName：从 profile 的 ServerConfig.Cookies 里随机挑一个名字！
+cookies := httpC2Config.ServerConfig.Cookies
+index := util.Intn(len(cookies))
+return cookies[index].Name
+```
+
+因此 C 端必须实现一个**最小 cookie jar**：
+
+1. 初始化请求不带 Cookie；
+2. 解析响应里的 `Set-Cookie: <name>=<value>`，记住这一对（**名字不要硬编码**，每次响应都可能变）；
+3. 之后每个请求都带 `Cookie: <name>=<value>`；
+4. 收到 403 → 清空 jar 并重新建立会话。
+
+Go 客户端之所以"看不见"这段逻辑，是因为它用的是 `http.Client{Jar: ...}`
+（`gohttp.go` 的 `cookieJar()`），jar 自动做了存取。
+
+### 其余两点
+
+- **poll 超时**：`DoPoll` 用 `PollTimeout` 取消在途 GET（`:324-352`）；C 端把
+  `SLIVER_POLL_TIMEOUT_NS` 接进 recv 的 socket 超时，超时视为 204（无任务）。
+- **关闭**：`CloseSession` 先撤销在途 poll，然后发关闭请求（`:567+`）。
 
 ## 6. 计划中的实现（`src/transport/http_session.c`）
 
 ```c
 typedef struct {
-  sliver_channel_t base;          /* STREAM/Poll 之上的会话层 */
-  char session_id[128];
-  unsigned char key[32];          /* CipherContext key */
-  sliver_encoder_kind_t enc;      /* 固定 NoEncoder（nonce%65537==0） */
   char host[256]; uint16_t port; int use_tls;
   char base_path[512];
+  /* cookie jar: 名字每次响应都可能变，所以按"最近一次 Set-Cookie"保存 */
+  char cookie_name[128];
+  char cookie_value[128];
+  int have_cookie;
+  unsigned char key[32];          /* CipherContext key */
+  sliver_encoder_kind_t enc;      /* 固定 NoEncoder（nonce % 65537 == 0） */
   long long poll_timeout_ns;
   sliver_frame_signer_t signer;   /* envelope 签名 */
   const char *server_pubkey;
 } http_session_t;
 
-int sliver_http_session_establish(http_session_t *s, ...);  /* §1 */
-int sliver_http_session_send(http_session_t *s, const void *env, size_t len);  /* §2 发送 */
-int sliver_http_session_recv(http_session_t *s, sliver_buf_t *out);            /* §2 轮询 */
-void sliver_http_session_close(http_session_t *s);                              /* §2 关闭 */
+/* §1：age keyex -> POST -> 200 -> 存 Set-Cookie -> 记 session 上下文 */
+int  sliver_http_session_establish(http_session_t *s, ...);
+/* §2 发送：body = encode(cipher(envelope))，POST，期望 202 */
+int  sliver_http_session_send(http_session_t *s, const void *env, size_t len);
+/* §2 轮询：GET，200 解出信封 / 204 无任务 / 403 需重建 */
+int  sliver_http_session_recv(http_session_t *s, sliver_buf_t *out);
+void sliver_http_session_close(http_session_t *s);
 ```
 
 接入方式与阶段 5 的 channel 设计一致：`sliver_channel_dial()` 在 `http(s)://` 分支
-返回一个"会话化"的 channel，`send/recv` 内部做 encode+encrypt；`session.c` /
-`beacon.c` 仍然不需要改动。
+返回一个"会话化"的 channel，`send/recv` 内部做 encode+cipher+cookie；
+`session.c` / `beacon.c` 仍然不需要改动。
 
 ## 7. 验收标准
 
