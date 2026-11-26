@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/encoders"
 )
 
 // buildConfig is the JSON contract between the Go server and the C/C++ implant
@@ -14,20 +15,34 @@ import (
 // stable: they are part of the generator<->template contract, exactly like the
 // Go text/template placeholders were.
 type buildConfig struct {
-	Name              string      `json:"name"`
-	BuildID           string      `json:"build_id"`
-	Strategy          string      `json:"strategy"`
-	Beacon            bool        `json:"beacon"`
-	ReconnectInterval int64       `json:"reconnect_interval_ns"`
-	BeaconInterval    int64       `json:"beacon_interval_ns"`
-	BeaconJitter      int64       `json:"beacon_jitter_ns"`
-	MaxConnectionErrs int         `json:"max_connection_errors"`
-	PollTimeout       int64       `json:"poll_timeout"`
-	Features          features    `json:"features"`
-	C2                []c2Entry   `json:"c2"`
-	Limits            limits      `json:"limits"`
-	Secrets           secrets     `json:"secrets"`
+	Name              string       `json:"name"`
+	BuildID           string       `json:"build_id"`
+	Strategy          string       `json:"strategy"`
+	Beacon            bool         `json:"beacon"`
+	ReconnectInterval int64        `json:"reconnect_interval_ns"`
+	BeaconInterval    int64        `json:"beacon_interval_ns"`
+	BeaconJitter      int64        `json:"beacon_jitter_ns"`
+	MaxConnectionErrs int          `json:"max_connection_errors"`
+	PollTimeout       int64        `json:"poll_timeout"`
+	Features          features     `json:"features"`
+	C2                []c2Entry    `json:"c2"`
+	Limits            limits       `json:"limits"`
+	Secrets           secrets      `json:"secrets"`
 	HTTP              *httpImplant `json:"http,omitempty"`
+	Encoders          *encoderIDs  `json:"encoders,omitempty"`
+}
+
+// encoderIDs mirrors server/generate's EncodersList: the ids are assigned per
+// server database, so the C runtime cannot hardcode them. The HTTP C2 channel
+// needs them to reproduce encoders.EncoderFromNonce (nonce % 65537 -> encoder).
+type encoderIDs struct {
+	Base64  uint64 `json:"base64"`
+	Base58  uint64 `json:"base58"`
+	Base32  uint64 `json:"base32"`
+	Hex     uint64 `json:"hex"`
+	English uint64 `json:"english"`
+	Gzip    uint64 `json:"gzip"`
+	PNG     uint64 `json:"png"`
 }
 
 type features struct {
@@ -155,6 +170,20 @@ func WriteConfigJSON(path, name string, build *clientpb.ImplantBuild, config *cl
 		cfg.HTTP = buildHTTPProfile(httpC2)
 	}
 
+	// The encoder ids live in the server database, so an HTTP(S) build needs them
+	// embedded to reproduce encoders.EncoderFromNonce.
+	if config.IncludeHTTP {
+		cfg.Encoders = &encoderIDs{
+			Base64:  encoders.Base64EncoderID,
+			Base58:  encoders.Base58EncoderID,
+			Base32:  encoders.Base32EncoderID,
+			Hex:     encoders.HexEncoderID,
+			English: encoders.EnglishEncoderID,
+			Gzip:    encoders.GzipEncoderID,
+			PNG:     encoders.PNGEncoderID,
+		}
+	}
+
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -175,7 +204,8 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func buildHTTPProfile(p *clientpb.HTTPC2ImplantConfig) *httpImplant {	out := &httpImplant{
+func buildHTTPProfile(p *clientpb.HTTPC2ImplantConfig) *httpImplant {
+	out := &httpImplant{
 		UserAgent:          p.UserAgent,
 		NonceQueryArgChars: p.NonceQueryArgChars,
 		NonceQueryArgLen:   p.NonceQueryLength,
