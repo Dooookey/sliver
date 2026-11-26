@@ -38,6 +38,16 @@ func GenerateCppCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			config.GOOS, config.GOARCH, config.Format)
 	}
 
+	// The C runtime speaks the Sliver wire protocol, but not yet the HTTP C2
+	// wire format: a real listener expects the profile-selected encoder plus a
+	// session cipher (age key exchange -> CipherContext), and answers 404 to a
+	// raw framed envelope. Say so instead of letting the artifact look usable.
+	if config.IncludeHTTP && len(config.C2) > 0 {
+		con.PrintWarnf("HTTP(S) C2 is not implemented yet in the C runtime " +
+			"(no encoder/session-cipher layer): the implant will be answered with " +
+			"404 by a real listener. Use --mtls.\n")
+	}
+
 	start := time.Now()
 	ctrl := make(chan bool)
 	con.SpinUntil("Compiling with cmake, please wait ...", ctrl)
